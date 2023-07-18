@@ -1,0 +1,418 @@
+---
+title: "Datafest"
+author: "Henoc Codjie"
+date: "2023-03-25"
+output: html_document
+---
+
+```{r}
+
+library(readr)
+library(leaps)
+library(mosaic)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(corrplot)
+library(stringr)
+library(tidyverse)
+library(sqldf)
+library(data.table)
+library(wordcloud2)
+library(SentimentAnalysis)
+library(scales)
+
+
+```
+
+
+```{r}
+
+test <- read_csv("datafest/data/questionposts.csv")
+
+x <- read_lines("datafest/data/questionposts.csv")
+
+test
+
+```
+
+```{r}
+
+
+test2 <- subset(test, nchar(CreatedUtc) > 19)
+
+test2
+
+```
+
+```{r}
+
+
+test3 <- subset(test, nchar(CreatedUtc) <= 19)
+
+test3
+
+```
+
+```{r}
+
+test4 <- test |> 
+    mutate(date_time = str_sub(CreatedUtc, -19, -1))
+
+
+test4
+
+
+```
+
+```{r}
+
+# test4 <- test |> 
+#     mutate(date_time = str_sub(CreatedUtc, -19, -1),
+#            text_to_merge = str_remove(CreatedUtc, date_time),
+#            PostText = str_c(PostText, text_to_merge, sep = ", ")) |>  select(-CreatedUtc, -text_to_merge) |>
+#   rename(CreatedUtc = date_time)
+# 
+# 
+# test4
+
+
+```
+
+
+
+
+
+```{r}
+
+# make_date_time = function(str){
+#   ifelse(endsWith(str, '"'), {
+#     finalstr = paste("2", substr(str, 1, nchar(str)-1), sep = "")
+#     return(finalstr)
+#   }, return(str))
+# }
+# 
+
+```
+
+
+
+```{r}
+
+
+
+ test5 <- test4 |> 
+     mutate(date_time = str_sub(CreatedUtc, -19, -1),
+            text_to_merge = str_remove(CreatedUtc, date_time),
+            PostText = str_c(PostText, text_to_merge, sep = ", ")) |>  select(-CreatedUtc, -text_to_merge) |>
+   rename(CreatedUtc = date_time)
+
+ test5
+
+```
+
+
+
+```{r}
+
+
+make_date_time = function(str){
+  if(isTRUE(endsWith(str, '"')) == TRUE){
+    finalstr = paste("2", substr(str, 1, nchar(str)-1), sep = "")
+    return(finalstr)
+  }
+  
+  else{
+    return(str)
+  }
+}
+
+```
+
+```{r}
+
+make_date_time('018-06-25 15:49:19"')
+
+```
+
+```{r}
+
+
+test5$d2 <- unlist(lapply(test5$CreatedUtc, make_date_time))
+
+
+test5
+
+```
+
+```{r}
+test6 <- test5 |>
+select(-CreatedUtc) 
+
+test6 <- test6 |> 
+  rename(CreatedUtc = d2)
+
+```
+
+
+
+```{r}
+
+posts_fin <- test6
+
+head(posts_fin)
+```
+
+
+
+```{r}
+
+freq <- table(posts_fin$QuestionUno)
+
+data.frame(freq)
+
+```
+
+```{r}
+
+posts_fin$count_column <- ave(posts_fin$QuestionUno, posts_fin$QuestionUno, FUN = function(x) table(x)[x])
+
+posts_fin
+```
+
+```{r}
+
+posts_fin_subset <- subset(posts_fin, count_column > 1)
+
+posts_fin_subset
+
+```
+
+```{r}
+
+posts_fin_subset$slang_count = NA
+
+
+posts_fin_subset
+
+```
+
+
+
+```{r}
+
+slang_words <- c("yall", " aint", " eh ", "lame", "gonna", "whatcha", "wanna", "d'you", "d'ya", "dyou", "dya", " ain't", " aint ", "gimme", "gotta", "kinda", "lemme", " ya ", " oh ","betcha", "dontcha", "jeez", "pop", "bubbler", " ope ", "come with", "where at", "down cellar", " carriage", "aback", "ayh", " aye", " uey", "brooken it", " bug", " deadass", "dungarees", "grinder", "ice box", "townie", "wicked", "fixin", "in'", "fixin'", "younder", "hankerin", "might could", "thingamajigger", "ragamuffin", "cool", "dude", "thanks", "thnx", "bro", "shoulda", "kinda", "nope", "sorta", "â€™t", "â€™d", "â€™ll", "â€™t", "â€™ ")
+
+
+```
+
+
+```{r}
+
+
+for (i in 1:nrow(posts_fin_subset)) {
+  slang_count <- sum(str_count(posts_fin_subset$PostText[i], paste(slang_words, collapse="|")))
+  posts_fin_subset$slang_count[i] <- slang_count
+}
+
+# Print the resulting data frame
+print(posts_fin_subset)
+```
+
+```{r}
+
+
+# group by column A and summarize the values in column B
+new_df <- posts_fin_subset %>% 
+  group_by(QuestionUno) %>% 
+  summarize(Total_Slang = sum(slang_count))
+
+# merge new_df with df to keep column B
+final_df1 <- merge(posts_fin_subset, new_df, by = "QuestionUno")
+
+final_df1 <- final_df1[, c("Id", "StateAbbr", "QuestionUno", "PostText", "CreatedUtc", "count_column", "slang_count", "Total_Slang")]
+
+# print the final data frame
+final_df1
+
+
+```
+
+
+```{r}
+
+
+final_df1$word_count <- str_count(final_df1$PostText, "\\S+")
+
+final_df1
+
+
+
+```
+
+
+```{r}
+
+final_df1$precent_slang <- final_df1$slang_count/final_df1$word_count
+
+final_df1
+
+```
+
+```{r}
+
+final_df1$Id <- as.numeric(final_df1$Id)
+
+
+```
+
+
+```{r}
+
+
+# group by column B and get the minimum value of column A for each group
+final_df1$starting_id <- ave(final_df1$Id, final_df1$QuestionUno, FUN = min)
+
+final_df1
+
+```
+
+```{r}
+
+final_df1$difference_id = final_df1$Id - final_df1$starting_id
+
+final_df1
+
+```
+
+```{r}
+
+df_client <- final_df1[final_df1$difference_id %% 2 == 0,]
+
+df_attorney <- final_df1[final_df1$difference_id %% 2 == 1,]
+
+df_client
+
+df_attorney
+
+```
+
+```{r}
+
+sum(df_client$slang_count, na.rm = TRUE)/sum(df_client$word_count, na.rm = TRUE)
+
+sum(df_attorney$slang_count, na.rm = TRUE)/sum(df_attorney$word_count, na.rm = TRUE)
+
+Position <- c("Client", "Attorney")
+Informal_Percentage <- c(0.002840693, 0.001072255)
+
+df2 <- data.frame(Position, Informal_Percentage)
+
+print (df2)
+
+```
+```{r}
+
+p <- ggplot(data = df2, aes(x=Position, y=Informal_Percentage)) + 
+  geom_bar(stat="identity",color="purple", fill=rgb(0.1,0.4,0.5,0.7) )
+
+p + coord_flip() + ggtitle("Plot of length \n by dose")
+
+```
+
+```{r}
+
+
+final_df1$PostText <- str_replace(final_df1$PostText, "â€™", "'")
+
+final_df1
+
+```
+
+```{r}
+
+df_client <- final_df1[final_df1$difference_id %% 2 == 0,]
+
+df_sym <-df_client[df_client$difference_id > 0,]
+
+df_sym
+
+```
+
+```{r}
+
+
+set.seed(12345)
+
+
+df_hund <- df_sym[sample(1:nrow(df_sym), 10000), ] 
+
+df_hund
+
+```
+
+
+```{r}
+
+sentiment <- analyzeSentiment(df_hund$PostText)
+
+sentiment$SentimentQDAP
+
+
+```
+
+```{r}
+
+
+sentiment$direction <- convertToDirection(sentiment$SentimentQDAP)
+
+sentiment
+
+
+```
+
+```{r}
+
+
+
+
+
+df_sent <- data.frame(
+  mood = c("Positive","Neutral", "Negative"),
+  value=c(nrow(sentiment[sentiment$direction == "positive",]),nrow(sentiment[sentiment$direction == "neutral",]),nrow(sentiment[sentiment$direction == "negative",]))
+)
+
+df_sent
+
+```
+
+
+```{r}
+
+blank_theme <- theme_minimal()+
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.border = element_blank(),
+  panel.grid=element_blank(),
+  axis.ticks = element_blank(),
+  plot.title=element_text(size=14, face="bold")
+  )
+
+```
+
+
+```{r}
+
+
+pie <- ggplot(df_sent, aes(x="", y=value, fill=mood)) +
+  geom_bar(stat="identity", width=1, color="white") +
+   geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) + theme_void() 
+
+pie + scale_fill_brewer("Sentiment") + blank_theme +
+  theme(axis.text.x=element_blank())
+
+
+```
+

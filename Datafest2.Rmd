@@ -1,0 +1,129 @@
+---
+title: "Datafest"
+author: "Henoc Codjie"
+date: "2023-03-25"
+output: html_document
+---
+
+```{r}
+
+library(readr)
+library(leaps)
+library(mosaic)
+library(ggplot2)
+library(data.table)
+library(dplyr)
+library(corrplot)
+library(stringr)
+library(tidyverse)
+library(sqldf)
+
+```
+
+
+```{r}
+
+attorneys <- read_csv("attorneys.csv")
+
+attorneys
+
+
+```
+
+
+```{r}
+
+test <- read_csv("questionposts.csv")
+
+x <- read_lines("questionposts.csv")
+
+test
+
+```
+
+```{r}
+
+
+test2 <- subset(test, nchar(CreatedUtc) > 19)
+
+test2
+
+```
+
+```{r}
+
+
+test3 <- subset(test, nchar(CreatedUtc) <= 19)
+
+test3
+
+```
+
+```{r}
+
+test4 <- test |> 
+    mutate(date_time = str_sub(CreatedUtc, -19, -1))
+
+
+test4
+
+
+```
+
+```{r}
+
+# test4 <- test |> 
+#     mutate(date_time = str_sub(CreatedUtc, -19, -1),
+#            text_to_merge = str_remove(CreatedUtc, date_time),
+#            PostText = str_c(PostText, text_to_merge, sep = ", ")) |>  select(-CreatedUtc, -text_to_merge) |>
+#   rename(CreatedUtc = date_time)
+# 
+# 
+# test4
+
+
+```
+
+
+```{r}
+
+
+make_date_time = function(str){
+  if(endsWith(str, '"')){
+    finalstr = paste("2", substr(str, 1, nchar(str)-1), sep = "")
+    return(finalstr)
+  }
+  
+  else{
+    return(str)
+}
+}
+
+```
+
+
+```{r}
+
+test4$d2 <- make_date_time(test4$date_time)
+
+```
+
+
+```{r}
+
+find_quotes <- function(df, col_name) {
+  quotes_pattern <- "\""
+  df[grep(quotes_pattern, df[[col_name]]),]
+}
+
+```
+
+
+```{r}
+
+
+test5 <- find_quotes(test4, "date_time")
+
+
+```
+
